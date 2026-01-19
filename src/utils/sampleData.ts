@@ -1,52 +1,55 @@
 import { SurveyRecord } from '../types/index';
 
 /**
- * 테스트용 샘플 데이터 생성
+ * 테스트용 샘플 데이터 생성 (LMS 엑셀 형식)
  */
 export function generateSampleData(count: number = 100): SurveyRecord[] {
-  const departments = ['마케팅팀', ' HR팀', '개발팀', '디자인팀'];
-  const subdepts = ['서울', '부산', '대구'];
-  const positions = ['사원', '대리', '과장', '부장'];
-  const genders = ['남', '여'];
+  const 소속1Options = ['솔루션 큐셀 제조기술부문', '에너지솔루션부문', 'R&D센터', '경영지원본부'];
+  const 소속2Options = ['기술본부', '생산본부', '품질본부', '연구소'];
+  const 소속3Options = ['개발팀', '운영팀', '기획팀', '관리팀'];
+  const 소속4Options = ['1그룹', '2그룹', '3그룹'];
+  const 직책Options = ['팀원', '파트장', '팀장'];
+  const 직군Options = ['일반직', '연구직', '기술직'];
+  const 직급Options = ['사원급', '대리급', '과장급', '차장급', '부장급'];
+  const 성별Options = ['남', '여'];
+  const 상태Options: ('미진단' | '진단완료')[] = ['미진단', '진단완료'];
 
   const data: SurveyRecord[] = [];
 
   for (let i = 1; i <= count; i++) {
+    const isCompleted = Math.random() > 0.3; // 70% 응답 완료
+    const 상태 = isCompleted ? '진단완료' : '미진단';
+
     const record: SurveyRecord = {
-      응답자ID: `RES_${String(i).padStart(5, '0')}`,
-      소속1: departments[Math.floor(Math.random() * departments.length)],
-      소속2: subdepts[Math.floor(Math.random() * subdepts.length)],
-      소속3: `${Math.floor(Math.random() * 5) + 1}조`,
-      직급: positions[Math.floor(Math.random() * positions.length)],
-      성별: genders[Math.floor(Math.random() * genders.length)],
-      근속년수: Math.floor(Math.random() * 15) + 1,
-
-      // 조직문화 영역별 점수 (1-5점)
-      '몰입도_Q1': Math.floor(Math.random() * 5) + 1,
-      '몰입도_Q2': Math.floor(Math.random() * 5) + 1,
-      '조직정렬_Q1': Math.floor(Math.random() * 5) + 1,
-      '조직정렬_Q2': Math.floor(Math.random() * 5) + 1,
-      '커리어_Q1': Math.floor(Math.random() * 5) + 1,
-      '커리어_Q2': Math.floor(Math.random() * 5) + 1,
-      '협업_Q1': Math.floor(Math.random() * 5) + 1,
-      '협업_Q2': Math.floor(Math.random() * 5) + 1,
-      '커뮤니케이션_Q1': Math.floor(Math.random() * 5) + 1,
-      '커뮤니케이션_Q2': Math.floor(Math.random() * 5) + 1,
-      '리더십_Q1': Math.floor(Math.random() * 5) + 1,
-      '리더십_Q2': Math.floor(Math.random() * 5) + 1,
-      '직무만족도_Q1': Math.floor(Math.random() * 5) + 1,
-      '직무만족도_Q2': Math.floor(Math.random() * 5) + 1,
-      '조직문화_Q1': Math.floor(Math.random() * 5) + 1,
-      '조직문화_Q2': Math.floor(Math.random() * 5) + 1,
-
-      // 중요도 점수 (1-5점)
-      '중요도_몰입': Math.floor(Math.random() * 5) + 1,
-      '중요도_정렬': Math.floor(Math.random() * 5) + 1,
-      '중요도_커리어': Math.floor(Math.random() * 5) + 1,
-      '중요도_협업': Math.floor(Math.random() * 5) + 1,
-      '중요도_커뮤니케이션': Math.floor(Math.random() * 5) + 1,
-      '중요도_리더십': Math.floor(Math.random() * 5) + 1,
+      SEQ: String(1600000 + i),
+      소속1: 소속1Options[Math.floor(Math.random() * 소속1Options.length)],
+      소속2: 소속2Options[Math.floor(Math.random() * 소속2Options.length)],
+      소속3: 소속3Options[Math.floor(Math.random() * 소속3Options.length)],
+      소속4: 소속4Options[Math.floor(Math.random() * 소속4Options.length)],
+      이름: `테스트${i}`,
+      '아이디(E-mail)': `test${i}@example.com`,
+      사번: `EMP${String(i).padStart(6, '0')}`,
+      직책: 직책Options[Math.floor(Math.random() * 직책Options.length)],
+      직군: 직군Options[Math.floor(Math.random() * 직군Options.length)],
+      직급: 직급Options[Math.floor(Math.random() * 직급Options.length)],
+      입사연도: String(2010 + Math.floor(Math.random() * 14)),
+      성별: 성별Options[Math.floor(Math.random() * 성별Options.length)],
+      근무지: 소속2Options[Math.floor(Math.random() * 소속2Options.length)],
+      진단일시: isCompleted ? new Date().toISOString() : '-',
+      상태,
     };
+
+    // 응답 완료자만 점수 데이터 추가
+    if (isCompleted) {
+      // 001~053 질문에 대한 점수 (1~5점)
+      for (let q = 1; q <= 53; q++) {
+        const qNum = String(q).padStart(3, '0');
+        record[`${qNum}_질문${q}`] = Math.floor(Math.random() * 5) + 1;
+      }
+      // 주관식 응답
+      record['054_긍정적인 점'] = '좋은 팀 분위기';
+      record['055_개선점'] = '의사소통 개선 필요';
+    }
 
     data.push(record);
   }
@@ -55,83 +58,17 @@ export function generateSampleData(count: number = 100): SurveyRecord[] {
 }
 
 /**
- * 실제 데이터 형식 예시
+ * LMS 엑셀 파일 컬럼 구조 예시
  */
-export const SAMPLE_DATA_TEMPLATE = {
-  columns: [
-    '응답자ID',
-    '소속1',
-    '소속2',
-    '소속3',
-    '직급',
-    '성별',
-    '근속년수',
-    '몰입도_Q1',
-    '몰입도_Q2',
-    '조직정렬_Q1',
-    '조직정렬_Q2',
-    '커리어_Q1',
-    '커리어_Q2',
-    '협업_Q1',
-    '협업_Q2',
-    '커뮤니케이션_Q1',
-    '커뮤니케이션_Q2',
-    '리더십_Q1',
-    '리더십_Q2',
-    '직무만족도_Q1',
-    '직무만족도_Q2',
-    '조직문화_Q1',
-    '조직문화_Q2',
-    '중요도_몰입',
-    '중요도_정렬',
-    '중요도_커리어',
-    '중요도_협업',
-    '중요도_커뮤니케이션',
-    '중요도_리더십',
-  ],
-  example: {
-    응답자ID: 'RES_00001',
-    소속1: '마케팅팀',
-    소속2: '서울',
-    소속3: '1조',
-    직급: '대리',
-    성별: '남',
-    근속년수: 3,
-    '몰입도_Q1': 4,
-    '몰입도_Q2': 3,
-    '조직정렬_Q1': 5,
-    '조직정렬_Q2': 4,
-    '커리어_Q1': 2,
-    '커리어_Q2': 3,
-    '협업_Q1': 4,
-    '협업_Q2': 4,
-    '커뮤니케이션_Q1': 3,
-    '커뮤니케이션_Q2': 3,
-    '리더십_Q1': 4,
-    '리더십_Q2': 4,
-    '직무만족도_Q1': 4,
-    '직무만족도_Q2': 4,
-    '조직문화_Q1': 3,
-    '조직문화_Q2': 3,
-    '중요도_몰입': 5,
-    '중요도_정렬': 4,
-    '중요도_커리어': 4,
-    '중요도_협업': 5,
-    '중요도_커뮤니케이션': 3,
-    '중요도_리더십': 4,
-  },
-};
-
-/**
- * CSV 형식으로 샘플 데이터 내보내기
- */
-export function exportSampleDataAsCSV(): string {
-  const template = SAMPLE_DATA_TEMPLATE;
-  const headers = template.columns.join(',');
-  const example = headers.split(',').map(col => template.example[col as keyof typeof template.example] || '');
-
-  return `${headers}\n${example.join(',')}`;
-}
+export const LMS_EXCEL_COLUMNS = [
+  'SEQ',
+  '소속1', '소속2', '소속3', '소속4',
+  '이름', '아이디(E-mail)', '사번',
+  '직책', '직군', '직급', '입사연도', '성별', '근무지',
+  '진단일시', '상태',
+  // 001~053: 점수 질문
+  // 054~055: 주관식 질문
+];
 
 /**
  * 샘플 데이터로 엑셀 생성 가능하도록 변환
@@ -141,12 +78,23 @@ export function generateExcelTemplate() {
     SheetNames: ['데이터'],
     Sheets: {
       데이터: {
-        '!ref': 'A1:Z100',
-        A1: { t: 's', v: '응답자ID' },
+        '!ref': 'A1:BZ500',
+        A1: { t: 's', v: 'SEQ' },
         B1: { t: 's', v: '소속1' },
         C1: { t: 's', v: '소속2' },
         D1: { t: 's', v: '소속3' },
-        // ... 더 많은 헤더
+        E1: { t: 's', v: '소속4' },
+        F1: { t: 's', v: '이름' },
+        G1: { t: 's', v: '아이디(E-mail)' },
+        H1: { t: 's', v: '사번' },
+        I1: { t: 's', v: '직책' },
+        J1: { t: 's', v: '직군' },
+        K1: { t: 's', v: '직급' },
+        L1: { t: 's', v: '입사연도' },
+        M1: { t: 's', v: '성별' },
+        N1: { t: 's', v: '근무지' },
+        O1: { t: 's', v: '진단일시' },
+        P1: { t: 's', v: '상태' },
       },
     },
   };

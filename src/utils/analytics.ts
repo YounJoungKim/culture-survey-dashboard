@@ -38,8 +38,6 @@ export function calculateQuestionScores(records: SurveyRecord[]): QuestionScore[
       questionText: questionId,
       category: inferCategory(questionId),
       score: Math.round(average * 10) / 10,
-      importance: Math.random() * 100,
-      satisfaction: Math.round(average * 10) / 10,
       count: scores.length,
       variance: Math.round(variance * 10) / 10,
     });

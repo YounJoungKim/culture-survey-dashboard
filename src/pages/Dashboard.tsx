@@ -1,17 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { Colors, spacing, borderRadius, shadows } from '../utils/theme';
-import KPICard, { KPIGrid } from '../components/KPICard';
-import FilterButtons from '../components/FilterButtons';
-import HeatmapTable from '../components/HeatmapTable';
-import ImportanceSatisfactionChart from '../components/ImportanceSatisfactionChart';
-import AnalysisDetailPanel from '../components/AnalysisDetailPanel';
+import { Colors, spacing, borderRadius, getResponseRateColor } from '../utils/theme';
+import KPICard, { KPIGrid, AlertBanner } from '../components/KPICard';
+import DonutChart from '../components/DonutChart';
+import HorizontalBarChart from '../components/HorizontalBarChart';
+import TeamTable from '../components/TeamTable';
 import { SurveyRecord } from '../types/index';
 import {
-  calculateCategoryScores,
-  generateImportanceMatrix,
-  getQuadrantRecommendation,
-  filterCompleteResponses,
+  calculateDashboardSummary,
+  calculateOrganizationStats,
+  calculateTeamStats,
 } from '../utils/dataProcessor';
 
 interface DashboardProps {
@@ -22,410 +20,224 @@ interface DashboardProps {
 const Container = styled.div`
   min-height: 100vh;
   background-color: ${Colors.uiLight};
-  padding: ${spacing.xl};
+  padding: ${spacing.lg};
 `;
 
 const Header = styled.div`
-  background: linear-gradient(135deg, ${Colors.primary} 0%, ${Colors.primaryMuted} 100%);
-  color: ${Colors.white};
-  padding: ${spacing.xl};
-  border-radius: ${borderRadius.lg};
-  margin-bottom: ${spacing.xl};
-  box-shadow: ${shadows.lg};
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: ${spacing.lg};
+  margin-bottom: ${spacing.xl};
 `;
 
-const HeaderContent = styled.div``;
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing.md};
+`;
 
-const Title = styled.h1`
-  font-size: 32px;
+const LogoIcon = styled.div`
+  width: 40px;
+  height: 40px;
+  background-color: ${Colors.primaryLight};
+  border-radius: ${borderRadius.md};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+`;
+
+const HeaderText = styled.div``;
+
+const HeaderTitle = styled.h1`
+  font-size: 18px;
   font-weight: 700;
-  margin: 0 0 ${spacing.sm} 0;
-`;
-
-const Subtitle = styled.p`
-  font-size: 16px;
-  opacity: 0.95;
+  color: ${Colors.textMain};
   margin: 0;
 `;
 
-const UpdatedDate = styled.p`
+const HeaderSubtitle = styled.p`
   font-size: 13px;
-  opacity: 0.8;
-  margin: ${spacing.sm} 0 0 0;
+  color: ${Colors.textSecondary};
+  margin: 2px 0 0 0;
+`;
+
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing.md};
+`;
+
+const DateBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing.xs};
+  padding: ${spacing.sm} ${spacing.md};
+  background-color: ${Colors.white};
+  border: 1px solid ${Colors.ui};
+  border-radius: ${borderRadius.md};
+  font-size: 13px;
+  color: ${Colors.textMain};
 `;
 
 const ResetButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: ${spacing.xs};
+  padding: ${spacing.sm} ${spacing.md};
   background-color: ${Colors.white};
-  color: ${Colors.primary};
-  padding: ${spacing.md} ${spacing.lg};
+  border: 1px solid ${Colors.ui};
   border-radius: ${borderRadius.md};
-  font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
+  color: ${Colors.textMain};
   cursor: pointer;
-  border: none;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 
   &:hover {
-    background-color: ${Colors.uiLight};
-    transform: translateY(-2px);
-    box-shadow: ${shadows.md};
-  }
-
-  &:active {
-    transform: translateY(0);
+    border-color: ${Colors.primary};
+    color: ${Colors.primary};
   }
 `;
 
 const Content = styled.div`
-  max-width: 1600px;
+  max-width: 1400px;
   margin: 0 auto;
+`;
+
+const ChartGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: ${spacing.lg};
+  margin-bottom: ${spacing.xl};
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const Section = styled.div`
   margin-bottom: ${spacing.xl};
 `;
 
-const SectionTitle = styled.h2`
-  font-size: 20px;
-  font-weight: 700;
-  color: ${Colors.textMain};
-  margin-bottom: ${spacing.lg};
-  display: flex;
-  align-items: center;
-  gap: ${spacing.md};
-
-  &:before {
-    content: '';
-    display: inline-block;
-    width: 4px;
-    height: 24px;
-    background-color: ${Colors.primary};
-    border-radius: 2px;
-  }
-`;
-
 const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
-  const [selectedOrg, setSelectedOrg] = useState<string>('전체');
-  const [selectedElement, setSelectedElement] = useState<string>('');
-  const [excludeIncomplete, setExcludeIncomplete] = useState<boolean>(false);
+  // 대시보드 요약 통계
+  const summary = useMemo(() => calculateDashboardSummary(data), [data]);
 
-  // 엑셀 헤더에서 조직 컬럼 자동 추출 ("소속" 포함 컬럼)
-  const organizationKeys = useMemo(() => {
-    if (data.length === 0) return [];
-    return Object.keys(data[0]).filter((key) => key.includes('소속'));
-  }, [data]);
+  // 조직별 통계 (소속1 기준)
+  const orgStats = useMemo(() => calculateOrganizationStats(data, '소속1'), [data]);
 
-  // 조직 목록 추출 (모든 "소속" 컬럼의 값)
-  const organizations = useMemo(() => {
-    const orgs = new Set<string>();
-    data.forEach((record) => {
-      organizationKeys.forEach((orgKey) => {
-        if (record[orgKey]) orgs.add(String(record[orgKey]));
-      });
-    });
-    return Array.from(orgs).sort();
-  }, [data, organizationKeys]);
+  // 팀별 통계
+  const teamStats = useMemo(() => calculateTeamStats(data), [data]);
 
-  // 필터링된 데이터
-  const filteredData = useMemo(() => {
-    let result = data;
-    // 미응답 제외 옵션
-    if (excludeIncomplete) {
-      result = filterCompleteResponses(result);
-    }
-    if (selectedOrg === '전체') {
-      return result;
-    }
-    // 모든 조직 컬럼에서 선택된 조직과 일치하는 값이 있으면 포함
-    return result.filter((record) => {
-      return organizationKeys.some((orgKey) => record[orgKey] === selectedOrg);
-    });
-  }, [data, selectedOrg, excludeIncomplete, organizationKeys]);
+  // 미응답 인원이 많은 경우 경고
+  const showWarning = summary.incompleteCount > summary.totalCount * 0.3;
 
-  // KPI 계산
-  const totalRespondents = filteredData.length;
-  const responseRate = Math.round(
-    (totalRespondents / Math.max(data.length, 1)) * 100
-  );
-
-  // 카테고리 점수 계산
-  const categoryScores = useMemo(() => {
-    return Array.from(calculateCategoryScores(filteredData).values());
-  }, [filteredData]);
-
-  // 중요도-만족도 데이터
-  const importanceData = useMemo(() => {
-    return generateImportanceMatrix(
-      new Map(categoryScores.map((c) => [c.categoryName, c]))
-    );
-  }, [categoryScores]);
-
-  // Heatmap 데이터
-  const heatmapData = useMemo(() => {
-    const categories = categoryScores.map((cat) => ({
-      category: cat.categoryName,
-      scores: {
-        [selectedOrg]: cat.score,
-      },
-    }));
-    return categories;
-  }, [categoryScores, selectedOrg]);
-
-  // 선택된 요소의 상세 분석
-  const selectedAnalysis = useMemo(() => {
-    if (!selectedElement) return undefined;
-    const element = categoryScores.find(
-      (cat) => cat.categoryName === selectedElement
-    );
-    if (!element) return undefined;
-    const quadrantInfo = getQuadrantRecommendation(
-      element.importance,
-      element.satisfaction
-    );
-    return {
-      element: selectedElement,
-      satisfaction: element.satisfaction,
-      importance: element.importance,
-      quadrant: quadrantInfo.quadrant,
-      departmentComparison: organizations.map((org) => ({
-        name: org,
-        // 실제 조직별 점수 계산 (해당 조직의 응답만 필터링)
-        score:
-          (() => {
-            const orgRecords = data.filter((record) =>
-              organizationKeys.some((orgKey) => record[orgKey] === org)
-            );
-            if (orgRecords.length === 0) return 0;
-            // 해당 조직의 선택 요소 평균 점수
-            const scores = orgRecords.map((r) => Number(r[selectedElement]) || 0);
-            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-            return Math.round(avg * 10) / 10;
-          })(),
-      })),
-      recommendation: quadrantInfo.recommendation,
-      variance: Math.round(Math.random() * 30 * 10) / 10,
-    };
-  }, [selectedElement, categoryScores, organizations, data, organizationKeys]);
-
-  const getStatus = (score: number): 'good' | 'warning' | 'risk' | 'neutral' => {
-    if (score >= 80) return 'good';
-    if (score >= 60) return 'warning';
-    if (score >= 40) return 'risk';
-    return 'neutral';
-  };
+  // 현재 날짜
+  const today = new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
     <Container>
       <Header>
-        <HeaderContent>
-          <Title>조직문화 진단 대시보드</Title>
-          <Subtitle>
-            실시간 응답률 현황 및 진단 결과를 한눈에 확인하세요
-          </Subtitle>
-          <UpdatedDate>
-            📅 기준일: {new Date().toLocaleDateString('ko-KR')}
-          </UpdatedDate>
-        </HeaderContent>
-        <ResetButton onClick={onReset}>↻ 파일 다시 업로드</ResetButton>
+        <HeaderLeft>
+          <LogoIcon>
+            <span role="img" aria-label="chart">&#128202;</span>
+          </LogoIcon>
+          <HeaderText>
+            <HeaderTitle>조직문화 진단</HeaderTitle>
+            <HeaderSubtitle>진단 현황 대시보드</HeaderSubtitle>
+          </HeaderText>
+        </HeaderLeft>
+        <HeaderRight>
+          <DateBadge>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            기준일: {today}
+          </DateBadge>
+          <ResetButton onClick={onReset}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+            </svg>
+            새로 업로드
+          </ResetButton>
+        </HeaderRight>
       </Header>
 
       <Content>
-        {/* KPI 카드 섹션 */}
-        <Section>
-          <SectionTitle>주요 현황</SectionTitle>
-          <KPIGrid>
-            <KPICard
-              title="전체 응답률"
-              value={responseRate}
-              unit="%"
-              icon="📊"
-              status={getStatus(responseRate)}
-              trend={responseRate >= 70 ? 'up' : 'down'}
-              trendValue={responseRate >= 70 ? '+5% vs 지난주' : '-3% vs 지난주'}
-              description="전사 대비 응답률"
-            />
-            <KPICard
-              title="응답 인원"
-              value={totalRespondents}
-              icon="👥"
-              status={totalRespondents > 50 ? 'good' : 'warning'}
-              description={`총 ${data.length}명 중 응답`}
-            />
-            <KPICard
-              title="미응답 인원"
-              value={data.length - totalRespondents}
-              icon="⏳"
-              status={data.length - totalRespondents > 20 ? 'risk' : 'good'}
-              description="응답 독려 필요"
-            />
-            <KPICard
-              title="평균 만족도"
-              value={
-                categoryScores.length > 0
-                  ? (
-                      categoryScores.reduce(
-                        (sum, cat) => sum + cat.satisfaction,
-                        0
-                      ) / categoryScores.length
-                    ).toFixed(1)
-                  : 0
-              }
-              unit="점"
-              icon="⭐"
-              status={
-                categoryScores.length > 0 &&
-                categoryScores.reduce((sum, cat) => sum + cat.satisfaction, 0) /
-                  categoryScores.length >=
-                  70
-                  ? 'good'
-                  : 'warning'
-              }
-              description="전 영역 평균값"
-            />
-          </KPIGrid>
-        </Section>
-
-        {/* 필터 섹션 */}
-        <Section>
-          <FilterButtons
-            organizations={organizations}
-            selectedOrg={selectedOrg}
-            onOrgChange={setSelectedOrg}
+        {/* KPI 카드 */}
+        <KPIGrid>
+          <KPICard
+            title="전체 응답률"
+            value={summary.responseRate}
+            unit="%"
+            subText={`${summary.completedCount}명 / ${summary.totalCount}명`}
+            icon="users"
+            status={summary.responseRate >= 70 ? 'good' : summary.responseRate >= 50 ? 'warning' : 'risk'}
+            valueColor={getResponseRateColor(summary.responseRate)}
           />
-          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="checkbox"
-              id="excludeIncomplete"
-              checked={excludeIncomplete}
-              onChange={(e) => setExcludeIncomplete(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            <label htmlFor="excludeIncomplete" style={{ cursor: 'pointer', fontSize: '14px' }}>
-              미응답 제외 (완전 응답만 포함)
-            </label>
-          </div>
-        </Section>
-
-        {/* Heatmap 섹션 */}
-        <Section>
-          <SectionTitle>영역별 만족도 현황</SectionTitle>
-          <HeatmapTable
-            data={heatmapData}
-            departments={[selectedOrg]}
-            title="조직별 영역 만족도 (Heatmap)"
+          <KPICard
+            title="응답 인원"
+            value={summary.completedCount}
+            subText="진단 완료"
+            icon="check"
+            status="good"
           />
-        </Section>
-
-        {/* 중요도 분석 섹션 */}
-        <Section>
-          <SectionTitle>중요도 분석 (중점 개선 항목)</SectionTitle>
-          <ImportanceSatisfactionChart
-            data={importanceData}
-            selectedElement={selectedElement}
-            onSelectElement={setSelectedElement}
-            isDragEnabled={true}
+          <KPICard
+            title="미응답 인원"
+            value={summary.incompleteCount}
+            subText="진단 필요"
+            icon="x"
+            status={summary.incompleteCount > 0 ? 'risk' : 'good'}
           />
-        </Section>
+          <KPICard
+            title="평균 만족도"
+            value={summary.avgSatisfaction.toFixed(1)}
+            unit="점"
+            subText="5점 만점"
+            icon="alert"
+            status={summary.avgSatisfaction >= 4 ? 'good' : summary.avgSatisfaction >= 3 ? 'warning' : 'risk'}
+          />
+        </KPIGrid>
 
-        {/* 상세 분석 섹션 */}
-        <Section>
-          <SectionTitle>선택 요소 상세 분석</SectionTitle>
-          <AnalysisDetailPanel analysis={selectedAnalysis} />
-        </Section>
+        {/* 경고 배너 */}
+        {showWarning && (
+          <AlertBanner
+            type="warning"
+            title="긴급 조치 필요"
+            message={`미응답 인원이 ${summary.incompleteCount}명입니다. 진단 독려가 필요합니다.`}
+          />
+        )}
 
-        {/* 추가 인사이트 */}
+        {/* 차트 영역 */}
+        <ChartGrid>
+          <DonutChart
+            data={orgStats}
+            title="본부별 인원 분포"
+          />
+          <HorizontalBarChart
+            data={orgStats}
+            title="본부별 응답률 현황"
+          />
+        </ChartGrid>
+
+        {/* 팀별 현황 테이블 */}
         <Section>
-          <SectionTitle>주요 인사이트</SectionTitle>
-          <InsightCard>
-            <InsightItem status="risk">
-              <InsightIcon>🚨</InsightIcon>
-              <InsightContent>
-                <InsightTitle>즉시 개선 필요 영역</InsightTitle>
-                <InsightDesc>
-                  중요도는 높지만 만족도가 낮은 {selectedOrg} 부서의 '{selectedElement || '분석 항목'}' 영역 개선이 시급합니다.
-                </InsightDesc>
-              </InsightContent>
-            </InsightItem>
-            <InsightItem status="good">
-              <InsightIcon>✅</InsightIcon>
-              <InsightContent>
-                <InsightTitle>유지 강화 영역</InsightTitle>
-                <InsightDesc>
-                  {/* 엑셀 기준 실제 존재하는 영역만 안내 */}
-                  {categoryScores.length > 0
-                    ? categoryScores
-                        .filter((cat) => cat.satisfaction >= 70)
-                        .map((cat) => `"${cat.categoryName}"`).join(', ')
-                    : '만족도 높은 영역 없음'} 영역에서 높은 만족도를 유지하고 있습니다.
-                  현 추진과제를 계속 진행하세요.
-                </InsightDesc>
-              </InsightContent>
-            </InsightItem>
-          </InsightCard>
+          <TeamTable
+            data={teamStats}
+            title="팀별 응답 현황"
+          />
         </Section>
       </Content>
     </Container>
   );
 };
-
-const InsightCard = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: ${spacing.lg};
-`;
-
-const InsightItem = styled.div<{ status: 'risk' | 'good' | 'warning' }>`
-  background: ${Colors.white};
-  border-radius: ${borderRadius.lg};
-  padding: ${spacing.lg};
-  box-shadow: ${shadows.md};
-  border-left: 4px solid
-    ${(props) => {
-      switch (props.status) {
-        case 'risk':
-          return Colors.risk;
-        case 'good':
-          return Colors.good;
-        default:
-          return Colors.warning;
-      }
-    }};
-  display: flex;
-  gap: ${spacing.md};
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: ${shadows.lg};
-  }
-`;
-
-const InsightIcon = styled.div`
-  font-size: 32px;
-  flex-shrink: 0;
-`;
-
-const InsightContent = styled.div`
-  flex: 1;
-`;
-
-const InsightTitle = styled.h4`
-  font-size: 15px;
-  font-weight: 700;
-  color: ${Colors.textMain};
-  margin: 0 0 ${spacing.sm} 0;
-`;
-
-const InsightDesc = styled.p`
-  font-size: 14px;
-  color: ${Colors.textSecondary};
-  margin: 0;
-  line-height: 1.6;
-`;
 
 export default Dashboard;
