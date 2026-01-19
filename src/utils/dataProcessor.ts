@@ -214,11 +214,6 @@ export function calculateCategoryScores(
   });
 
   return categoryMap;
-      count,
-    });
-  });
-
-  return categoryMap;
 }
 
 /**
