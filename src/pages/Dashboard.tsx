@@ -12,7 +12,6 @@ import {
   generateImportanceMatrix,
   getQuadrantRecommendation,
   filterCompleteResponses,
-  getIncompleteResponseStats,
 } from '../utils/dataProcessor';
 
 interface DashboardProps {
