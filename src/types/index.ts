@@ -9,7 +9,7 @@ export interface SurveyRecord {
   소속3?: string;
   직급?: string;
   성별?: string;
-  근속년수?: string;
+  근속년수?: number;
   [key: string]: string | number | undefined;
 }
 
