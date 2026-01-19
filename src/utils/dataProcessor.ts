@@ -29,39 +29,36 @@ export async function parseExcelFile(file: File): Promise<SurveyRecord[]> {
           throw new Error('시트를 읽을 수 없습니다.');
         }
         
-        // 더 유연한 파싱: 빈 행 제거 및 데이터 정규화
+        // 엑셀 헤더(첫 행) 기준으로 컬럼명 생성
         let records: any[] = XLSX.utils.sheet_to_json(worksheet, {
-          defval: '' // 빈 셀은 빈 문자열로 처리
+          header: 1, // 2차원 배열로 반환 (첫 행: 헤더)
+          defval: ''
         });
 
-        if (records.length === 0) {
-          throw new Error('엑셀 파일이 비어있거나 데이터가 없습니다.');
+        if (records.length < 2) {
+          throw new Error('엑셀 파일에 데이터가 없습니다.');
         }
 
-        // 첫 번째 행이 헤더인지 확인하고 빈 행 제거
-        records = records.filter((record) => {
-          // 모든 필드가 비어있지 않은 행만 유지
-          return Object.values(record).some((val) => val !== '' && val !== null);
-        });
+        const headerRow: string[] = records[0].map((col: any) => String(col).trim());
+        const dataRows = records.slice(1);
 
-        if (records.length === 0) {
+        // 각 행을 SurveyRecord 객체로 변환 (헤더 기준)
+        const normalizedRecords: SurveyRecord[] = dataRows
+          .filter((row: any[]) => row.some((val) => val !== '' && val !== null))
+          .map((row: any[]) => {
+            const record: SurveyRecord = {};
+            headerRow.forEach((col, idx) => {
+              record[col] = row[idx] ?? '';
+            });
+            return record;
+          });
+
+        if (normalizedRecords.length === 0) {
           throw new Error('유효한 데이터 행이 없습니다.');
         }
 
-        // 컬럼명 정규화 (공백 제거, 트림)
-        const normalizedRecords = records.map((record) => {
-          const normalized: SurveyRecord = {};
-          Object.entries(record).forEach(([key, value]) => {
-            const normalizedKey = String(key).trim();
-            normalized[normalizedKey] = value;
-          });
-          return normalized;
-        });
-
-        // 콘솔 로그: 첫 번째 레코드의 컬럼명 출력 (디버깅용)
-        if (normalizedRecords.length > 0) {
-          console.log('인식된 컬럼:', Object.keys(normalizedRecords[0]));
-        }
+        // 디버깅: 실제 컬럼명 출력
+        console.log('엑셀 헤더 컬럼:', headerRow);
 
         resolve(normalizedRecords);
       } catch (error) {

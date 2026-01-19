@@ -115,43 +115,38 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [selectedElement, setSelectedElement] = useState<string>('');
   const [excludeIncomplete, setExcludeIncomplete] = useState<boolean>(false);
 
+  // 엑셀 헤더에서 조직 컬럼 자동 추출 ("소속" 포함 컬럼)
+  const organizationKeys = useMemo(() => {
+    if (data.length === 0) return [];
+    return Object.keys(data[0]).filter((key) => key.includes('소속'));
+  }, [data]);
+
+  // 조직 목록 추출 (모든 "소속" 컬럼의 값)
+  const organizations = useMemo(() => {
+    const orgs = new Set<string>();
+    data.forEach((record) => {
+      organizationKeys.forEach((orgKey) => {
+        if (record[orgKey]) orgs.add(String(record[orgKey]));
+      });
+    });
+    return Array.from(orgs).sort();
+  }, [data, organizationKeys]);
+
   // 필터링된 데이터
   const filteredData = useMemo(() => {
     let result = data;
-    
     // 미응답 제외 옵션
     if (excludeIncomplete) {
       result = filterCompleteResponses(result);
     }
-    
     if (selectedOrg === '전체') {
       return result;
     }
-
-    const orgMap: { [key: string]: keyof SurveyRecord } = {
-      '소속1': '소속1',
-      '소속2': '소속2',
-      '소속3': '소속3',
-    };
-
+    // 모든 조직 컬럼에서 선택된 조직과 일치하는 값이 있으면 포함
     return result.filter((record) => {
-      const orgKey = Object.keys(orgMap).find(
-        (key) => record[orgMap[key as keyof typeof orgMap]] === selectedOrg
-      ) as keyof typeof orgMap | undefined;
-      return orgKey
-        ? record[orgMap[orgKey]] === selectedOrg
-        : record.소속1 === selectedOrg;
+      return organizationKeys.some((orgKey) => record[orgKey] === selectedOrg);
     });
-  }, [data, selectedOrg, excludeIncomplete]);
-
-  // 조직 목록 추출
-  const organizations = useMemo(() => {
-    const orgs = new Set<string>();
-    data.forEach((record) => {
-      if (record.소속1) orgs.add(String(record.소속1));
-    });
-    return Array.from(orgs).sort();
-  }, [data]);
+  }, [data, selectedOrg, excludeIncomplete, organizationKeys]);
 
   // KPI 계산
   const totalRespondents = filteredData.length;
@@ -185,17 +180,14 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   // 선택된 요소의 상세 분석
   const selectedAnalysis = useMemo(() => {
     if (!selectedElement) return undefined;
-
     const element = categoryScores.find(
       (cat) => cat.categoryName === selectedElement
     );
     if (!element) return undefined;
-
     const quadrantInfo = getQuadrantRecommendation(
       element.importance,
       element.satisfaction
     );
-
     return {
       element: selectedElement,
       satisfaction: element.satisfaction,
@@ -203,12 +195,23 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       quadrant: quadrantInfo.quadrant,
       departmentComparison: organizations.map((org) => ({
         name: org,
-        score: Math.round(Math.random() * 100 * 10) / 10,
+        // 실제 조직별 점수 계산 (해당 조직의 응답만 필터링)
+        score:
+          (() => {
+            const orgRecords = data.filter((record) =>
+              organizationKeys.some((orgKey) => record[orgKey] === org)
+            );
+            if (orgRecords.length === 0) return 0;
+            // 해당 조직의 선택 요소 평균 점수
+            const scores = orgRecords.map((r) => Number(r[selectedElement]) || 0);
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            return Math.round(avg * 10) / 10;
+          })(),
       })),
       recommendation: quadrantInfo.recommendation,
       variance: Math.round(Math.random() * 30 * 10) / 10,
     };
-  }, [selectedElement, categoryScores, organizations]);
+  }, [selectedElement, categoryScores, organizations, data, organizationKeys]);
 
   const getStatus = (score: number): 'good' | 'warning' | 'risk' | 'neutral' => {
     if (score >= 80) return 'good';
@@ -345,8 +348,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
               <InsightContent>
                 <InsightTitle>즉시 개선 필요 영역</InsightTitle>
                 <InsightDesc>
-                  중요도는 높지만 만족도가 낮은 {selectedOrg} 부서의 '{selectedElement || '커리어'}'
-                  영역 개선이 시급합니다.
+                  중요도는 높지만 만족도가 낮은 {selectedOrg} 부서의 '{selectedElement || '분석 항목'}' 영역 개선이 시급합니다.
                 </InsightDesc>
               </InsightContent>
             </InsightItem>
@@ -355,7 +357,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
               <InsightContent>
                 <InsightTitle>유지 강화 영역</InsightTitle>
                 <InsightDesc>
-                  '리더십' 및 '조직정렬' 영역에서 높은 만족도를 유지하고 있습니다.
+                  {/* 엑셀 기준 실제 존재하는 영역만 안내 */}
+                  {categoryScores.length > 0
+                    ? categoryScores
+                        .filter((cat) => cat.satisfaction >= 70)
+                        .map((cat) => `"${cat.categoryName}"`).join(', ')
+                    : '만족도 높은 영역 없음'} 영역에서 높은 만족도를 유지하고 있습니다.
                   현 추진과제를 계속 진행하세요.
                 </InsightDesc>
               </InsightContent>
