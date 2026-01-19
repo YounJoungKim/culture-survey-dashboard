@@ -17,17 +17,55 @@ export async function parseExcelFile(file: File): Promise<SurveyRecord[]> {
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
+        
+        if (workbook.SheetNames.length === 0) {
+          throw new Error('엑셀 파일에 시트가 없습니다.');
+        }
+        
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const records: SurveyRecord[] = XLSX.utils.sheet_to_json(worksheet);
+        
+        if (!worksheet) {
+          throw new Error('시트를 읽을 수 없습니다.');
+        }
+        
+        // 더 유연한 파싱: 빈 행 제거 및 데이터 정규화
+        let records: any[] = XLSX.utils.sheet_to_json(worksheet, {
+          defval: '' // 빈 셀은 빈 문자열로 처리
+        });
 
         if (records.length === 0) {
-          throw new Error('엑셀 파일이 비어있습니다.');
+          throw new Error('엑셀 파일이 비어있거나 데이터가 없습니다.');
         }
 
-        resolve(records);
+        // 첫 번째 행이 헤더인지 확인하고 빈 행 제거
+        records = records.filter((record) => {
+          // 모든 필드가 비어있지 않은 행만 유지
+          return Object.values(record).some((val) => val !== '' && val !== null);
+        });
+
+        if (records.length === 0) {
+          throw new Error('유효한 데이터 행이 없습니다.');
+        }
+
+        // 컬럼명 정규화 (공백 제거, 트림)
+        const normalizedRecords = records.map((record) => {
+          const normalized: SurveyRecord = {};
+          Object.entries(record).forEach(([key, value]) => {
+            const normalizedKey = String(key).trim();
+            normalized[normalizedKey] = value;
+          });
+          return normalized;
+        });
+
+        // 콘솔 로그: 첫 번째 레코드의 컬럼명 출력 (디버깅용)
+        if (normalizedRecords.length > 0) {
+          console.log('인식된 컬럼:', Object.keys(normalizedRecords[0]));
+        }
+
+        resolve(normalizedRecords);
       } catch (error) {
-        reject(error);
+        reject(new Error(`파일 파싱 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`));
       }
     };
 
@@ -50,53 +88,132 @@ export function calculateResponseRate(
 }
 
 /**
- * 카테고리별 점수 계산
+ * 미응답 데이터 필터링 (동적 컬럼 감지)
+ */
+export function filterCompleteResponses(records: SurveyRecord[]): SurveyRecord[] {
+  if (records.length === 0) return records;
+
+  // 첫 번째 레코드에서 점수 필드 자동 감지 (숫자 값을 가진 필드들)
+  const firstRecord = records[0];
+  const scoreFields = Object.keys(firstRecord).filter((key) => {
+    const value = firstRecord[key];
+    // 점수처럼 보이는 필드: 숫자이고, 1-5 범위 또는 1-100 범위의 값
+    return (
+      !isNaN(Number(value)) && 
+      Number(value) > 0 &&
+      (Number(value) <= 5 || Number(value) <= 100)
+    );
+  });
+
+  if (scoreFields.length === 0) {
+    // 점수 필드가 없으면 모든 레코드를 반환
+    console.warn('점수 필드를 찾을 수 없습니다. 모든 응답을 포함합니다.');
+    return records;
+  }
+
+  return records.filter((record) => {
+    // 감지된 모든 점수 필드가 유효한 숫자값인지 확인
+    const hasCompleteResponses = scoreFields.every((field) => {
+      const value = record[field];
+      return (
+        value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        !isNaN(Number(value)) &&
+        Number(value) > 0
+      );
+    });
+
+    return hasCompleteResponses;
+  });
+}
+
+/**
+ * 미응답 인원 통계
+ */
+export function getIncompleteResponseStats(records: SurveyRecord[]): {
+  totalRecords: number;
+  completeResponses: number;
+  incompleteResponses: number;
+  incompletionRate: number;
+} {
+  const completeRecords = filterCompleteResponses(records);
+  const incomplete = records.length - completeRecords.length;
+
+  return {
+    totalRecords: records.length,
+    completeResponses: completeRecords.length,
+    incompleteResponses: incomplete,
+    incompletionRate: records.length > 0 
+      ? Math.round((incomplete / records.length) * 100)
+      : 0,
+  };
+}
+
+/**
+ * 카테고리별 점수 계산 (동적 카테고리 감지)
  */
 export function calculateCategoryScores(
   records: SurveyRecord[]
 ): Map<string, CategoryScore> {
   const categoryMap = new Map<string, CategoryScore>();
 
-  // 일반적인 조직문화 진단 카테고리
-  const categories = [
-    '몰입도',
-    '조직정렬',
-    '커리어',
-    '협업',
-    '커뮤니케이션',
-    '리더십',
-    '직무만족도',
-    '조직문화',
-  ];
+  if (records.length === 0) {
+    return categoryMap;
+  }
+
+  // 첫 번째 레코드에서 점수 필드 추출
+  const firstRecord = records[0];
+  const scoreFields = Object.keys(firstRecord).filter((key) => {
+    const value = firstRecord[key];
+    return !isNaN(Number(value)) && Number(value) > 0;
+  });
+
+  // 동적 카테고리 추출 (점수 필드의 앞부분 추출: "몰입도_Q1" → "몰입도")
+  const categories = new Set<string>();
+  scoreFields.forEach((field) => {
+    const categoryName = field.split('_')[0];
+    if (categoryName && categoryName.length > 0) {
+      categories.add(categoryName);
+    }
+  });
+
+  // 카테고리가 없으면 기본값 사용
+  if (categories.size === 0) {
+    categories.add('전체');
+  }
 
   categories.forEach((category) => {
     let totalScore = 0;
     let count = 0;
 
     records.forEach((record) => {
-      // 레코드에서 해당 카테고리와 관련된 점수 추출
-      const categoryKey = Object.keys(record).find(
-        (key) =>
-          key.includes(category) &&
-          !isNaN(Number(record[key]))
+      // 해당 카테고리와 관련된 점수 필드 찾기
+      const categoryFields = scoreFields.filter((key) =>
+        key.startsWith(category)
       );
 
-      if (categoryKey && record[categoryKey]) {
-        const score = Number(record[categoryKey]);
-        if (!isNaN(score)) {
-          totalScore += score;
+      categoryFields.forEach((field) => {
+        const value = Number(record[field]);
+        if (!isNaN(value) && value > 0) {
+          totalScore += value;
           count++;
         }
-      }
+      });
     });
 
     const avgScore = count > 0 ? totalScore / count : 0;
 
-    categoryMap.set(category, {
-      categoryName: category,
+    categoryMap.set(String(category), {
+      categoryName: String(category),
       score: Math.round(avgScore * 10) / 10,
-      importance: Math.random() * 100, // 실제 데이터로부터 계산 필요
+      importance: Math.random() * 100,
       satisfaction: Math.round(avgScore * 10) / 10,
+      count,
+    });
+  });
+
+  return categoryMap;
       count,
     });
   });

@@ -11,6 +11,8 @@ import {
   calculateCategoryScores,
   generateImportanceMatrix,
   getQuadrantRecommendation,
+  filterCompleteResponses,
+  getIncompleteResponseStats,
 } from '../utils/dataProcessor';
 
 interface DashboardProps {
@@ -111,11 +113,19 @@ const SectionTitle = styled.h2`
 const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [selectedOrg, setSelectedOrg] = useState<string>('전체');
   const [selectedElement, setSelectedElement] = useState<string>('');
+  const [excludeIncomplete, setExcludeIncomplete] = useState<boolean>(false);
 
   // 필터링된 데이터
   const filteredData = useMemo(() => {
+    let result = data;
+    
+    // 미응답 제외 옵션
+    if (excludeIncomplete) {
+      result = filterCompleteResponses(result);
+    }
+    
     if (selectedOrg === '전체') {
-      return data;
+      return result;
     }
 
     const orgMap: { [key: string]: keyof SurveyRecord } = {
@@ -124,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       '소속3': '소속3',
     };
 
-    return data.filter((record) => {
+    return result.filter((record) => {
       const orgKey = Object.keys(orgMap).find(
         (key) => record[orgMap[key as keyof typeof orgMap]] === selectedOrg
       ) as keyof typeof orgMap | undefined;
@@ -132,7 +142,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
         ? record[orgMap[orgKey]] === selectedOrg
         : record.소속1 === selectedOrg;
     });
-  }, [data, selectedOrg]);
+  }, [data, selectedOrg, excludeIncomplete]);
 
   // 조직 목록 추출
   const organizations = useMemo(() => {
@@ -285,6 +295,18 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             selectedOrg={selectedOrg}
             onOrgChange={setSelectedOrg}
           />
+          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="checkbox"
+              id="excludeIncomplete"
+              checked={excludeIncomplete}
+              onChange={(e) => setExcludeIncomplete(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            <label htmlFor="excludeIncomplete" style={{ cursor: 'pointer', fontSize: '14px' }}>
+              미응답 제외 (완전 응답만 포함)
+            </label>
+          </div>
         </Section>
 
         {/* Heatmap 섹션 */}
