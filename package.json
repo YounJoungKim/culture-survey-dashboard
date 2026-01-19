@@ -4,23 +4,23 @@
   "description": "조직문화 진단 대시보드",
   "private": true,
   "dependencies": {
+    "classnames": "^2.3.2",
+    "date-fns": "^2.30.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "typescript": "^5.3.3",
-    "styled-components": "^6.0.8",
-    "recharts": "^2.10.3",
-    "xlsx": "^0.18.5",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
-    "classnames": "^2.3.2",
-    "date-fns": "^2.30.0"
+    "react-dom": "^18.2.0",
+    "recharts": "^2.10.3",
+    "styled-components": "^6.0.8",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/node": "^20.8.10",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
-    "@types/node": "^20.8.10",
     "@types/styled-components": "^5.1.26",
-    "react-scripts": "5.0.1"
+    "react-scripts": "5.0.1",
+    "typescript": "4.9.5"
   },
   "scripts": {
     "start": "react-scripts start",
