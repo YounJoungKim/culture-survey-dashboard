@@ -4,7 +4,6 @@ import {
   DashboardData,
   CategoryScore,
   OrganizationData,
-  QuestionScore,
 } from '../types/index';
 
 /**
