@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Colors, spacing, borderRadius, shadows, typography } from '@utils/theme';
+import { Colors, spacing, borderRadius, shadows, typography } from '../utils/theme';
 
 interface KPICardProps {
   title: string;

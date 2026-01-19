@@ -1,23 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { Colors, spacing, borderRadius, shadows, typography } from '@utils/theme';
-import KPICard, { KPIGrid } from '@components/KPICard';
-import FilterButtons from '@components/FilterButtons';
-import HeatmapTable from '@components/HeatmapTable';
-import ImportanceSatisfactionChart from '@components/ImportanceSatisfactionChart';
-import AnalysisDetailPanel from '@components/AnalysisDetailPanel';
+import { Colors, spacing, borderRadius, shadows, typography } from '../utils/theme';
+import KPICard, { KPIGrid } from '../components/KPICard';
+import FilterButtons from '../components/FilterButtons';
+import HeatmapTable from '../components/HeatmapTable';
+import ImportanceSatisfactionChart from '../components/ImportanceSatisfactionChart';
+import AnalysisDetailPanel from '../components/AnalysisDetailPanel';
 import {
   SurveyRecord,
   CategoryScore,
   ImportanceMatrix,
   AnalysisResult,
-} from '@types/index';
+} from '../types/index';
 import {
   filterDataByOrganization,
   calculateCategoryScores,
   generateImportanceMatrix,
   getQuadrantRecommendation,
-} from '@utils/dataProcessor';
+} from '../utils/dataProcessor';
 
 interface DashboardProps {
   data: SurveyRecord[];

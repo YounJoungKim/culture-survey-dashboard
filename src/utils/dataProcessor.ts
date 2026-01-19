@@ -5,7 +5,7 @@ import {
   CategoryScore,
   OrganizationData,
   QuestionScore,
-} from '@types/index';
+} from '../types/index';
 
 /**
  * Excel 파일 파싱 및 데이터 추출

@@ -1,4 +1,4 @@
-import { SurveyRecord } from '@types/index';
+import { SurveyRecord } from '../types/index';
 
 /**
  * 테스트용 샘플 데이터 생성

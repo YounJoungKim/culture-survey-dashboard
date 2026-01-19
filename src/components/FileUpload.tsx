@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Colors, spacing, borderRadius, shadows } from '@utils/theme';
-import { parseExcelFile, validateSurveyData } from '@utils/dataProcessor';
-import { SurveyRecord } from '@types/index';
+import { Colors, spacing, borderRadius, shadows } from '../utils/theme';
+import { parseExcelFile, validateSurveyData } from '../utils/dataProcessor';
+import { SurveyRecord } from '../types/index';
 
 interface FileUploadProps {
   onUpload: (records: SurveyRecord[]) => void;

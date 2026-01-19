@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { SurveyRecord } from '@types/index';
+import { SurveyRecord } from '../types/index';
 
 /**
  * 데이터 필터링 훅

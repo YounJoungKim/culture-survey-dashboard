@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
-import { Colors, spacing, borderRadius, shadows, typography } from '@utils/theme';
+import { Colors, spacing, borderRadius, shadows, typography } from '../utils/theme';
 
 interface ImportanceDataPoint {
   x: number;

@@ -2,7 +2,7 @@
  * 엑셀 데이터 처리 및 상세 분석 함수들
  */
 
-import { SurveyRecord, CategoryScore, QuestionScore } from '@types/index';
+import { SurveyRecord, CategoryScore, QuestionScore } from '../types/index';
 
 /**
  * 문항별 상세 점수 계산

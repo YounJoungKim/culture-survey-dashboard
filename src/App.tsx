@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { GlobalStyles, Colors } from '@utils/theme';
-import FileUpload from '@components/FileUpload';
-import Dashboard from '@pages/Dashboard';
-import { SurveyRecord } from '@types/index';
+import { GlobalStyles, Colors } from './utils/theme';
+import FileUpload from './components/FileUpload';
+import Dashboard from './pages/Dashboard';
+import { SurveyRecord } from './types/index';
 
 const AppContainer = styled.div`
   ${GlobalStyles}
